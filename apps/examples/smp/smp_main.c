@@ -165,6 +165,18 @@ static pthread_addr_t barrier_thread(pthread_addr_t parameter)
 	printf("Thread[%d]: Started\n",  threadno);
 	show_cpu("Thread", threadno);
 
+	if (threadno == 6) {
+		printf("I am THREAD 6!!!! running on cpu%d\n", up_cpu_index());
+		printf("Pause cpu0\n");
+		up_cpu_pause(0);
+		//up_set_gating_flag_status(0, 1);
+		//up_cpu_gating(0);
+		printf("Cause a data abort on cpu1\n");
+		usleep(500);
+		volatile int *ptr = 0;
+		*ptr++;
+	}
+
 	/* Hog some CPU time */
 
 	hog_time("Thread", threadno);
