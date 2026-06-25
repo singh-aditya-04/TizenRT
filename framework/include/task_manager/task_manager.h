@@ -151,6 +151,9 @@ typedef void (*tm_termination_callback_t)(void *cb_data);
 extern "C" {
 #endif /* __cplusplus */
 
+/* External reference to task-manager service PID - used by driver for permission check */
+extern int task_manager_pid;
+
 /****************************************************************************
  * Public Function Prototypes
  ****************************************************************************/

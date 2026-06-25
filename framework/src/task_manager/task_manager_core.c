@@ -60,7 +60,7 @@ static app_list_t tm_app_list[CONFIG_TASK_MANAGER_MAX_TASKS];
 static tm_task_info_t tm_task_list[CONFIG_TASK_MANAGER_MAX_TASKS];
 static bool g_handle_hash[CONFIG_TASK_MANAGER_MAX_TASKS];
 static int tm_broadcast_msg[TM_BROADCAST_MSG_MAX + CONFIG_TASK_MANAGER_MAX_TASKS];
-static int task_manager_pid;
+int task_manager_pid;  /* Non-static for driver access */
 
 #define MAX_HANDLE_MASK      (CONFIG_TASK_MANAGER_MAX_TASKS - 1)
 #define HANDLE_HASH(handle)  ((handle) & MAX_HANDLE_MASK)
@@ -102,6 +102,7 @@ app_list_t *taskmger_get_applist(int handle)
  ****************************************************************************/
 static int taskmgr_open_driver(void)
 {
+	/* Open task manager device */
 	g_taskmgr_fd = open(TASK_MANAGER_DRVPATH, O_RDWR);
 	if (g_taskmgr_fd < 0) {
 		tmdbg("Failed to open task management driver %d\n", errno);
@@ -1467,6 +1468,8 @@ static int taskmgr_init_task_manager(void)
 		tmdbg("Failed to open task manager driver.\n");
 		return ERROR;
 	}
+
+	/* First open automatically registers task_manager as the authorized service */
 
 	data.addr = task_manager_run_exit_cb;
 	ret = ioctl(taskmgr_fd, TMIOC_EXITCB, (unsigned long)&data);

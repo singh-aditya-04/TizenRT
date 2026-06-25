@@ -48,12 +48,21 @@
 void taskmgr_msg_cb(int signo, siginfo_t *data)
 {
 	int handle;
+	int taskmgr_pid;
 	tm_msg_t *broadcast_param;
 	void *broadcast_data = NULL;
 	void *user_data;
 	void *cb_data;
 	int user_data_size;
 	tm_msg_t unicast_param;
+
+	/* FIX for finding-187: Verify signal came from Task Manager service */
+	taskmgr_pid = taskmgr_get_task_manager_pid();
+	if (data->si_pid != taskmgr_pid) {
+		tmdbg("SIGTM from unauthorized sender: pid=%d (expected %d)\n",
+		      data->si_pid, taskmgr_pid);
+		return;  /* Reject signals from non-task-manager sources */
+	}
 
 	handle = taskmgr_get_handle_by_pid(getpid());
 	if (handle == TM_UNREGISTERED_APP) {
@@ -124,6 +133,15 @@ void taskmgr_stop_cb(int signo, siginfo_t *data)
 	int taskmgr_pid;
 	union sigval msg;
 	tm_termination_info_t *cb_info;
+
+	/* FIX for finding-187: Verify signal came from Task Manager service */
+	taskmgr_pid = taskmgr_get_task_manager_pid();
+	if (data->si_pid != taskmgr_pid) {
+		tmdbg("SIGTM_TERMINATION from unauthorized sender: pid=%d (expected %d)\n",
+		      data->si_pid, taskmgr_pid);
+		return;  /* Reject signals from non-task-manager sources */
+	}
+
 	cb_info = (tm_termination_info_t *)data->si_value.sival_ptr;
 
 	/* Call callback function with callback data */

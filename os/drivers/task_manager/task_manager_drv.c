@@ -24,6 +24,7 @@
 #include <debug.h>
 #include <signal.h>
 #include <sys/types.h>
+#include <errno.h>
 
 #include <apps/builtin.h>
 #include <tinyara/sched.h>
@@ -44,6 +45,7 @@
  * Private Function Prototypes
  ****************************************************************************/
 
+static int taskmgr_open(FAR struct file *filep);
 static int taskmgr_ioctl(FAR struct file *filep, int cmd, unsigned long arg);
 static ssize_t taskmgr_read(FAR struct file *filep, FAR char *buffer, size_t len);
 static ssize_t taskmgr_write(FAR struct file *filep, FAR const char *buffer, size_t len);
@@ -52,12 +54,13 @@ static ssize_t taskmgr_write(FAR struct file *filep, FAR const char *buffer, siz
  * Private Data
  ****************************************************************************/
 
+static pid_t g_taskmgr_service_pid = 0;
 struct taskmgr_dev_s {
 	mqd_t mqdes;	   /* A mqueue descriptor */
 };
 
 static const struct file_operations taskmgr_fops = {
-	0,                          /* open */
+	taskmgr_open,               /* open - SECURITY CHECK HERE */
 	0,                          /* close */
 	taskmgr_read,               /* read */
 	taskmgr_write,              /* write */
@@ -67,8 +70,13 @@ static const struct file_operations taskmgr_fops = {
 	, 0                         /* poll */
 #endif
 };
+
 /****************************************************************************
  * Private Functions
+ ****************************************************************************/
+
+/****************************************************************************
+ * Name: taskmgr_task_init
  ****************************************************************************/
 static int taskmgr_task_init(pid_t pid, void *usr_pause_handler)
 {
@@ -177,6 +185,35 @@ static ssize_t taskmgr_write(FAR struct file *filep, FAR const char *buffer, siz
 }
 
 /************************************************************************************
+ * Name: taskmgr_open
+ *
+ * Description:
+ *   Open handler for task manager device.
+ ************************************************************************************/
+static int taskmgr_open(FAR struct file *filep)
+{
+	pid_t caller_pid;
+
+	caller_pid = getpid();
+
+	/* First opener becomes the authorized task_manager service */
+	if (g_taskmgr_service_pid == 0) {
+		g_taskmgr_service_pid = caller_pid;
+		tmvdbg("[TM] First opener registered as service: PID %d\n", caller_pid);
+		return OK;
+	}
+
+	/* Subsequent callers must match the registered service PID */
+	if (caller_pid != g_taskmgr_service_pid) {
+		lldbg("[TM] OPEN DENIED: Caller PID %d != service PID %d\n",
+		      caller_pid, g_taskmgr_service_pid);
+		return -EPERM;
+	}
+
+	return OK;
+}
+
+/************************************************************************************
  * Name: taskmgr_ioctl
  *
  * Description:  The ioctl method for task management.
@@ -188,6 +225,14 @@ static int taskmgr_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
 	struct tcb_s *tcb;
 	tm_pthread_pid_t *group_info;
 	tm_drv_data_t *data;
+	pid_t caller_pid;
+
+	caller_pid = getpid();
+	if (caller_pid != g_taskmgr_service_pid) {
+		tmdbg("[TM] IOCTL DENIED: Caller PID %d != service PID %d\n",
+		      caller_pid, g_taskmgr_service_pid);
+		return -EPERM;
+	}
 
 	tmvdbg("cmd: %d arg: %ld\n", cmd, arg);
 
@@ -196,8 +241,6 @@ static int taskmgr_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
 		tmdbg("Invalid Argument.\n");
 		return ERROR;
 	}
-
-	/* Handle built-in ioctl commands */
 
 	switch (cmd) {
 	case TMIOC_START:
@@ -320,6 +363,7 @@ static int taskmgr_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
  * Public Functions
  ****************************************************************************/
 
+
 /****************************************************************************
  * Name: task_manager_drv_register
  *
@@ -330,5 +374,5 @@ static int taskmgr_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
 
 void task_manager_drv_register(void)
 {
-	(void)register_driver(TASK_MANAGER_DRVPATH, &taskmgr_fops, 0666, NULL);
+	(void)register_driver(TASK_MANAGER_DRVPATH, &taskmgr_fops, 0600, NULL);
 }

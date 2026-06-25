@@ -49,7 +49,9 @@ struct tm_drv_data_s {
 };
 typedef struct tm_drv_data_s tm_drv_data_t;
 
+
 void task_manager_drv_register(void);
+
 
 /**
  * @cond
