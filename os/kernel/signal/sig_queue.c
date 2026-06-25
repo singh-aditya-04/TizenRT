@@ -65,6 +65,10 @@
 #include "sched/sched.h"
 #include "signal/signal.h"
 
+#ifdef CONFIG_TASK_MANAGER
+#include <tinyara/task_manager_drv.h>
+#endif
+
 /****************************************************************************
  * Definitions
  ****************************************************************************/
@@ -159,6 +163,14 @@ int sigqueue(int pid, int signo, void *sival_ptr)
 #ifdef CONFIG_SCHED_HAVE_PARENT
 	info.si_pid = rtcb->pid;
 	info.si_status = OK;
+#endif
+
+	/* SECURITY CHECK: Block forged SIGTM signals at kernel level */
+#ifdef CONFIG_TASK_MANAGER
+	ret = taskmgr_check_sigtm_sender(signo);
+	if (ret < 0) {
+		goto errout;
+	}
 #endif
 
 	/* Send the signal */

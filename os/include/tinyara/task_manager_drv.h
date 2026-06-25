@@ -49,8 +49,12 @@ struct tm_drv_data_s {
 };
 typedef struct tm_drv_data_s tm_drv_data_t;
 
+extern pid_t g_taskmgr_service_pid;
 
 void task_manager_drv_register(void);
+
+/* Check if caller is authorized to send SIGTM signals */
+int taskmgr_check_sigtm_sender(int signo);
 
 
 /**

@@ -54,7 +54,8 @@ static ssize_t taskmgr_write(FAR struct file *filep, FAR const char *buffer, siz
  * Private Data
  ****************************************************************************/
 
-static pid_t g_taskmgr_service_pid = 0;
+/* Exposed for framework access - stores task manager service PID */
+pid_t g_taskmgr_service_pid = 0;
 struct taskmgr_dev_s {
 	mqd_t mqdes;	   /* A mqueue descriptor */
 };
@@ -375,4 +376,46 @@ static int taskmgr_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
 void task_manager_drv_register(void)
 {
 	(void)register_driver(TASK_MANAGER_DRVPATH, &taskmgr_fops, 0600, NULL);
+}
+
+/****************************************************************************
+ * Name: taskmgr_check_sigtm_sender
+ *
+ * Description:
+ *   Verify that the caller is authorized to send SIGTM signals.
+ *   Only the task manager service can send SIGTM_UNICAST,
+ *   SIGTM_BROADCAST, and SIGTM_TERMINATION.
+ *
+ * Parameters:
+ *   signo - Signal number to check
+ *
+ * Return Value:
+ *   0 if authorized, -EPERM if not authorized
+ ****************************************************************************/
+
+int taskmgr_check_sigtm_sender(int signo)
+{
+	pid_t caller_pid;
+
+	/* Only check SIGTM signals */
+	if (signo != CONFIG_SIG_SIGTM_UNICAST &&
+	    signo != CONFIG_SIG_SIGTM_BROADCAST &&
+	    signo != CONFIG_SIG_SIGTM_TERMINATION) {
+		return OK;
+	}
+
+	/* If task manager service not registered yet, allow */
+	if (g_taskmgr_service_pid == 0) {
+		return OK;
+	}
+
+	/* Check if caller is the task manager service */
+	caller_pid = getpid();
+	if (caller_pid != g_taskmgr_service_pid) {
+		lldbg("[SECURITY][SIGTM] BLOCKED: PID %d tried to send SIGTM %d (service PID: %d)\n",
+		      caller_pid, signo, g_taskmgr_service_pid);
+		return -EPERM;
+	}
+
+	return OK;
 }
