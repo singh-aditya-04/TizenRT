@@ -102,7 +102,11 @@ int uv_async_send(uv_async_t *handle)
 
 int uv_async_deinit(uv_loop_t *loop, uv_async_t *handle)
 {
-	uv__async_stop(loop, &loop->async_watcher);
+	/* Only unregister this handle. loop->async_watcher is shared by every
+	 * async handle on the loop (including loop->wq_async); stopping it here
+	 * closes the shared wakeup fd for the other users. It is torn down once,
+	 * in uv__loop_close(). Mirrors upstream libuv uv__async_close(). */
+	(void)loop;
 	uv__handle_stop(handle);
 	QUEUE_REMOVE(&handle->queue);
 	QUEUE_INIT(&handle->queue);
