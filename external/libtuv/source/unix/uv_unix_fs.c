@@ -247,6 +247,7 @@ retry:
 done:
 	if (req->bufs != req->bufsml) {
 		free(req->bufs);
+		req->bufs = req->bufsml;
 	}
 	return result;
 }
@@ -314,6 +315,7 @@ retry:
 done:
 	if (req->bufs != req->bufsml) {
 		free(req->bufs);
+		req->bufs = req->bufsml;
 	}
 
 	return r;
