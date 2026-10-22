@@ -150,6 +150,14 @@ handle_poll:
 
 		for (i = 0; i < loop->npollfds; ++i) {
 			pe = &loop->pollfds[i];
+			/* A negative fd can never be dispatched: drop the entry instead
+			 * of indexing loop->watchers[] with a negative fd. */
+			if (pe->fd < 0) {
+				uv__rem_pollfd(loop, pe);
+				--i;
+				continue;
+			}
+
 			w = loop->watchers[pe->fd];
 
 			if (w == NULL) {
@@ -158,7 +166,7 @@ handle_poll:
 				continue;
 			}
 
-			if (pe->fd >= 0 && (pe->revents & (POLLIN | POLLOUT | POLLHUP))) {
+			if (pe->revents & (POLLIN | POLLOUT | POLLHUP)) {
 				w->cb(loop, w, pe->revents);
 				++nevents;
 			}
