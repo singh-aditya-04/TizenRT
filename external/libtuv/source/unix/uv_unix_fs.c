@@ -511,7 +511,6 @@ static void uv__fs_work(struct uv__work *w)
 			TDLOG("!!! file operation(%d) does not exist !!!", req->fs_type);
 			ABORT();
 		}
-		r = -1;
 #undef X
 	} while (r == -1 && errno == EINTR && retry_on_eintr);
 
