@@ -56,7 +56,18 @@ static void uv__add_pollfd(uv_loop_t *loop, struct pollfd *pe)
 		}
 	}
 	if (!exist) {
-		struct pollfd *cur = &loop->pollfds[loop->npollfds++];
+		struct pollfd *cur;
+
+		if (loop->npollfds >= TUV_POLL_EVENTS_SIZE) {
+			/* pollfds[] is a fixed inline array (see uv_extension.h):
+			 * appending more entries would overflow the loop object.
+			 * Drop the watch and make the failure visible instead. */
+			TDLOG("ERROR: pollfds overflow (%d), skip fd %d",
+				  loop->npollfds, pe->fd);
+			return;
+		}
+
+		cur = &loop->pollfds[loop->npollfds++];
 		cur->fd = pe->fd;
 		cur->events = pe->events;
 		cur->revents = 0;
